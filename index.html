@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Table Extractor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #0D1117;
+            color: #C9D1D9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #161B22;
+            padding: 50px 40px;
+            border-radius: 16px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            width: 400px;
+        }
+        h1 {
+            margin-bottom: 30px;
+            color: #00FF7F;
+            font-size: 24px;
+        }
+        .button, .file-label {
+            display: inline-block;
+            background: linear-gradient(90deg, #00FF7F, #32CD32);
+            color: #0D1117;
+            padding: 12px 24px;
+            margin: 20px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.4s ease;
+        }
+        .button:hover, .file-label:hover {
+            background: linear-gradient(90deg, #32CD32, #00FF7F);
+        }
+        input[type="file"] { display: none; }
+        .file-list {
+            margin-top: 20px;
+            text-align: left;
+            color: #00FF7F;
+            font-size: 16px;
+        }
+        .file-list span { display: block; margin-bottom: 10px; }
+        #responseMessage, #loadingMessage {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        #responseMessage { color: #00FF7F; }
+        #loadingMessage { color: #FFA500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload PDF to Extract Tables</h1>
+
+        <label for="fileUpload" class="file-label">Choose PDF File</label>
+        <input type="file" id="fileUpload" name="file" accept="application/pdf" required>
+
+        <div id="fileList" class="file-list"></div>
+
+        <button class="button" id="submitBtn">Upload and Extract</button>
+
+        <div id="loadingMessage" style="display:none;">⏳ Processing...</div>
+        <div id="responseMessage"></div>
+    </div>
+
+    <script>
+        const fileUpload = document.getElementById('fileUpload');
+        const fileList = document.getElementById('fileList');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const responseMessage = document.getElementById('responseMessage');
+
+        fileUpload.addEventListener('change', () => {
+            fileList.innerHTML = '';
+            const files = fileUpload.files;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileItem = document.createElement('span');
+                fileItem.textContent = `• ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                fileList.appendChild(fileItem);
+            }
+        });
+
+        submitBtn.addEventListener('click', () => {
+            const files = fileUpload.files;
+            if (files.length === 0) {
+                alert('Please upload a PDF file before submitting.');
+                return;
+            }
+
+            const file = files[0];
+            if (!file.name.endsWith('.pdf')) {
+                alert('Only PDF files are allowed.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            loadingMessage.style.display = 'block';
+            responseMessage.textContent = '';
+            submitBtn.disabled = true;
+
+            fetch('http://127.0.0.1:5000/upload', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Upload failed');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(blob);
+                downloadLink.download = 'extracted_tables.zip';
+                downloadLink.click();
+                responseMessage.textContent = '✅ File extracted and download started.';
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                responseMessage.textContent = `❌ ${error.message}`;
+            })
+            .finally(() => {
+                loadingMessage.style.display = 'none';
+                submitBtn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
